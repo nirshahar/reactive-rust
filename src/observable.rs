@@ -2,7 +2,7 @@ use crossbeam_queue::SegQueue;
 
 pub struct Observable<'a, Item> {
     observers: Vec<Box<dyn Fn(&Item) + 'a>>,
-    event_queue: SegQueue<&'a Item>,
+    event_queue: SegQueue<Item>,
 }
 
 impl<'a, Item> Observable<'a, Item> {
@@ -17,11 +17,17 @@ impl<'a, Item> Observable<'a, Item> {
         self.observers.push(Box::new(observer));
     }
 
-    pub fn publish(&self, item: &'a Item) {
+    pub fn publish(&self, item: Item) {
         self.event_queue.push(item);
     }
 
-    pub fn emit_all(&self) {
+    pub fn publish_and_emit(&self, item: Item) {
+        self.event_queue.push(item);
+
+        self.emit_all();
+    }
+
+    fn emit_all(&self) {
         while !self.event_queue.is_empty() {
             self.emit_once();
         }
@@ -30,7 +36,7 @@ impl<'a, Item> Observable<'a, Item> {
     fn emit_once(&self) -> bool {
         self.event_queue
             .pop()
-            .map(|item| self.emit_item(item))
+            .map(|item| self.emit_item(&item))
             .is_some()
     }
 
