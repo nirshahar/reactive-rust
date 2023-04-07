@@ -21,14 +21,17 @@ impl<'a, Item> Observable<'a, Item> {
         self.event_queue.push(item);
     }
 
-    pub fn emit_once(&self) -> bool {
-        if let Some(item) = self.event_queue.pop() {
-            self.emit_item(item);
-
-            true
-        } else {
-            false
+    pub fn emit_all(&self) {
+        while !self.event_queue.is_empty() {
+            self.emit_once();
         }
+    }
+
+    fn emit_once(&self) -> bool {
+        self.event_queue
+            .pop()
+            .map(|item| self.emit_item(item))
+            .is_some()
     }
 
     pub fn emit_item(&self, item: &'a Item) {
