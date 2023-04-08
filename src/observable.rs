@@ -1,11 +1,11 @@
 use crossbeam_queue::SegQueue;
 
-pub struct Observable<'a, Item> {
-    observers: Vec<Box<dyn Fn(&Item) + 'a>>,
-    event_queue: SegQueue<Item>,
+pub struct Observable<'a, Event> {
+    observers: Vec<Box<dyn Fn(&Event) + 'a>>,
+    event_queue: SegQueue<Event>,
 }
 
-impl<'a, Item> Observable<'a, Item> {
+impl<'a, Event> Observable<'a, Event> {
     pub fn new() -> Self {
         return Self {
             observers: Vec::new(),
@@ -13,16 +13,16 @@ impl<'a, Item> Observable<'a, Item> {
         };
     }
 
-    pub fn observe<F: Fn(&Item) + 'a>(&mut self, observer: F) {
+    pub fn observe<F: Fn(&Event) + 'a>(&mut self, observer: F) {
         self.observers.push(Box::new(observer));
     }
 
-    pub fn publish(&self, item: Item) {
-        self.event_queue.push(item);
+    pub fn publish(&self, event: Event) {
+        self.event_queue.push(event);
     }
 
-    pub fn publish_and_emit(&self, item: Item) {
-        self.event_queue.push(item);
+    pub fn publish_and_emit(&self, event: Event) {
+        self.event_queue.push(event);
 
         self.emit_all();
     }
@@ -36,17 +36,20 @@ impl<'a, Item> Observable<'a, Item> {
     fn emit_once(&self) -> bool {
         self.event_queue
             .pop()
-            .map(|item| self.emit_item(&item))
+            .map(|event| self.emit_event(&event))
             .is_some()
     }
 
-    pub fn emit_item(&self, item: &'a Item) {
+    pub fn emit_event(&self, event: &'a Event) {
         for obs in self.observers.iter() {
-            obs(item);
+            obs(event);
         }
     }
 
-    pub fn map<NewItem, F: Fn(&Item) -> NewItem + 'a>(&self, map: F) -> Observable<'a, NewItem> {
+    pub fn map<NewEvent, F: Fn(&Event) -> NewEvent + 'a>(
+        &self,
+        map: F,
+    ) -> Observable<'a, NewEvent> {
         todo!();
     }
 }
