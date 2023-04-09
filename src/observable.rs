@@ -4,7 +4,7 @@ use slotmap::{new_key_type, DenseSlotMap};
 new_key_type! {pub struct ObservationKey;}
 
 pub struct Observable<'a, Event> {
-    observers: DenseSlotMap<ObservationKey, RemoveableSubscription<'a, Event>>,
+    observers: DenseSlotMap<ObservationKey, Box<dyn Fn(&Event) + 'a>>,
     event_queue: SegQueue<Event>,
 }
 
@@ -16,8 +16,9 @@ impl<'a, Event> Observable<'a, Event> {
         };
     }
 
-    pub fn observe<F: Fn(&Event) + 'a>(&mut self, observer: F) {
-        self.observers.push(Box::new(observer));
+    pub fn observe<F: Fn(&Event) + 'a>(&mut self, subscriber: F) -> ObservationKey {
+        self.observers.insert(Box::new(subscriber))
+    }
     }
 
     pub fn publish(&self, event: Event) {
