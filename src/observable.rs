@@ -1,14 +1,17 @@
 use crossbeam_queue::SegQueue;
+use slotmap::{new_key_type, DenseSlotMap};
+
+new_key_type! {pub struct ObservationKey;}
 
 pub struct Observable<'a, Event> {
-    observers: Vec<Box<dyn Fn(&Event) + 'a>>,
+    observers: DenseSlotMap<ObservationKey, RemoveableSubscription<'a, Event>>,
     event_queue: SegQueue<Event>,
 }
 
 impl<'a, Event> Observable<'a, Event> {
     pub fn new() -> Self {
         return Self {
-            observers: Vec::new(),
+            observers: DenseSlotMap::with_key(),
             event_queue: SegQueue::new(),
         };
     }
@@ -41,8 +44,8 @@ impl<'a, Event> Observable<'a, Event> {
     }
 
     pub fn emit_event(&self, event: &'a Event) {
-        for obs in self.observers.iter() {
-            obs(event);
+        for observer in self.observers.values() {
+            observer.try_call(event);
         }
     }
 
