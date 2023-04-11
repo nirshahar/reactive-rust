@@ -1,3 +1,4 @@
+pub mod emitter;
 pub mod observable;
 pub mod scheduler;
 

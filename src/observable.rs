@@ -1,59 +1,51 @@
-use crossbeam_queue::SegQueue;
-use slotmap::{new_key_type, DenseSlotMap};
+use std::marker::PhantomData;
 
-new_key_type! {pub struct ObservationKey;}
+use crate::{
+    emitter::{Emitter, ObservationKey},
+    scheduler::{Scheduler, SingleThreadedScheduler},
+};
 
-pub struct Observable<'a, Event> {
-    observers: DenseSlotMap<ObservationKey, Box<dyn Fn(&Event) + 'a>>,
-    event_queue: SegQueue<Event>,
+pub struct Observable<'a, Event, Sched>
+where
+    Sched: Scheduler<'a, Event = Event>,
+{
+    scheduler: Sched,
+    _phantom_event: PhantomData<&'a Event>,
 }
 
-impl<'a, Event> Observable<'a, Event> {
+impl<'a, Event, Sched> Observable<'a, Event, Sched>
+where
+    Sched: Scheduler<'a, Event = Event>,
+{
+    pub fn observe<F: FnMut(&Event) + 'a>(&mut self, subscriber: F) -> ObservationKey {
+        self.scheduler.observe(subscriber)
+    }
+
+    pub fn publish(&mut self, event: Event) {
+        self.scheduler.publish(event);
+    }
+
+    pub fn with_scheduler<NewSched>(self) -> Observable<'a, Event, NewSched>
+    where
+        NewSched: Scheduler<'a, Event = Event>,
+    {
+        let emmiter = self.scheduler.finish();
+
+        let scheduler = NewSched::on(emmiter);
+
+        Observable {
+            scheduler,
+            _phantom_event: PhantomData,
+        }
+    }
+}
+
+impl<'a, Event> Observable<'a, Event, SingleThreadedScheduler<'a, Event>> {
     pub fn new() -> Self {
-        return Self {
-            observers: DenseSlotMap::with_key(),
-            event_queue: SegQueue::new(),
-        };
-    }
-
-    pub fn observe<F: Fn(&Event) + 'a>(&mut self, subscriber: F) -> ObservationKey {
-        self.observers.insert(Box::new(subscriber))
-    }
-    }
-
-    pub fn publish(&self, event: Event) {
-        self.event_queue.push(event);
-    }
-
-    pub fn publish_and_emit(&self, event: Event) {
-        self.event_queue.push(event);
-
-        self.emit_all();
-    }
-
-    fn emit_all(&self) {
-        while !self.event_queue.is_empty() {
-            self.emit_once();
+        let emmiter = Emitter::new();
+        Self {
+            scheduler: SingleThreadedScheduler::on(emmiter),
+            _phantom_event: PhantomData,
         }
-    }
-
-    fn emit_once(&self) -> bool {
-        self.event_queue
-            .pop()
-            .map(|event| self.emit_event(&event))
-            .is_some()
-    }
-
-    pub fn emit_event(&self, event: &'a Event) {
-        for observer in self.observers.values() {
-            observer.try_call(event);
-        }
-    }
-
-    pub fn map<NewEvent, F: Fn(&Event) -> NewEvent + 'a>(
-        &self,
-        map: F,
-    ) -> Observable<'a, NewEvent> {
-        todo!();
     }
 }
