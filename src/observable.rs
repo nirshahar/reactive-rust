@@ -5,17 +5,17 @@ use crate::{
     scheduler::{Scheduler, SingleThreadedScheduler},
 };
 
-pub struct Observable<'a, Event, Sched>
+pub struct Observable<'a, Event, Schedule>
 where
-    Sched: Scheduler<'a, Event = Event>,
+    Schedule: Scheduler<'a, Event = Event>,
 {
-    scheduler: Sched,
+    scheduler: Schedule,
     _phantom_event: PhantomData<&'a Event>,
 }
 
-impl<'a, Event, Sched> Observable<'a, Event, Sched>
+impl<'a, Event, Schedule> Observable<'a, Event, Schedule>
 where
-    Sched: Scheduler<'a, Event = Event>,
+    Schedule: Scheduler<'a, Event = Event>,
 {
     pub fn observe<F: FnMut(&Event) + 'a>(&mut self, subscriber: F) -> ObservationKey {
         self.scheduler.observe(subscriber)
@@ -25,13 +25,12 @@ where
         self.scheduler.publish(event);
     }
 
-    pub fn with_scheduler<NewSched>(self) -> Observable<'a, Event, NewSched>
-    where
-        NewSched: Scheduler<'a, Event = Event>,
-    {
-        let emmiter = self.scheduler.finish();
+    pub fn with_scheduler() -> Observable<'a, Event, Schedule> {
+        let observable = Observable::new();
 
-        let scheduler = NewSched::on(emmiter);
+        let emmiter = observable.scheduler.finish();
+
+        let scheduler = Schedule::on(emmiter);
 
         Observable {
             scheduler,

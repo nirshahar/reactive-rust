@@ -90,6 +90,8 @@ impl<'a, Event: 'a> Scheduler<'a> for MultiThreadedScheduler<'a, Event> {
     fn finish(mut self) -> Emitter<'a, Self::Event> {
         self.emit_all();
 
+        todo!(); // TODO: close the extra running thread if not needed
+
         self.emitter
     }
 }
